@@ -142,6 +142,7 @@ void destroyFeatureMatrix(FeatureMatrix** featureMatrix){
         return ;
     }
     for (int i = 0; i < (*featureMatrix)->nFeaturesVectors; ++i) {
+
         destroyFeatureVector( &((*featureMatrix)->featureVector[i]) );
     }
     free((*featureMatrix)->featureVector);

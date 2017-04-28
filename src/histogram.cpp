@@ -248,7 +248,7 @@ Histogram* computeHistogram(ColorImage* colorImage, int numberBins){
 }
 
 FeatureVector* createFeatureVector(Histogram *histogram){
-    FeatureVector* featureVector = (FeatureVector*)calloc(1,sizeof(FeatureVector));
+    FeatureVector* featureVector = (FeatureVector *)calloc(1,sizeof(FeatureVector));
     featureVector->size = histogram->n;
     featureVector->features = (float *)calloc(histogram->n,sizeof(float));
     for (int i = 0; i < histogram->n; ++i) {
@@ -258,7 +258,6 @@ FeatureVector* createFeatureVector(Histogram *histogram){
 }
 
 Histogram* computeHistogram(Image *image,float binSize, bool normalization){
-
     int numberBinsPerChannel = ceil((image->scalingFactor+1)/binSize) ;
     int totalNumberBins = pow(numberBinsPerChannel,image->nchannels);
     Histogram *histogram = createHistogram(totalNumberBins);
