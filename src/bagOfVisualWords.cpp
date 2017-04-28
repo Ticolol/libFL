@@ -84,11 +84,12 @@ float euclidean_distance(FeatureVector *v0, FeatureVector *v1)
 {
 	int length;
 	float distance = 0;
-	if ((length = v0->size) != v1->size) {
+    length = v0->size;
+	if (length != v1->size) {
 		return NAN;
 	}
-	for (int i = length; i < length; i++) {
-		float difference = v0->features[i] - v0->features[i];
+	for (int i = 0; i < length; i++) {
+		float difference = v0->features[i] - v1->features[i];
 		distance += difference * difference;
 	}
 	distance = sqrt(distance);
@@ -124,7 +125,8 @@ FeatureMatrix *find_centroids(FeatureMatrix *featureMatrix, float **centroids, i
 	return new_dict;
 }
 
-FeatureMatrix* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCluster){
+TrainingKnowledge* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCluster)
+{
 	FeatureMatrix *dict = createFeatureMatrix(numberOfCluster);
 	FeatureMatrix *new_dict = NULL;
 	int k = 0;
@@ -158,6 +160,7 @@ FeatureMatrix* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCluste
 			for (int j = 1; j < numberOfCluster; j++) {
 				// calculamos a distancia do vetor i para o centroide j do dicionario
 				float distance = euclidean_distance(featureMatrix->featureVector[i], dict->featureVector[j]);
+                //printf("%f -> -%f => %d\n", distance, distance_to_closest_cluster, distance < distance_to_closest_cluster);
 				if (distance < distance_to_closest_cluster) {
 					// se a distancia a esse centroide for menor do que a um anterior, atualizamos o centroide mais proximo
 					closest_cluster = j;
@@ -182,9 +185,13 @@ FeatureMatrix* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCluste
 	// repete até a diferença entre o dict velho e o novo ficar menor que um epsilon
 	} while (dict_distance > DICT_DIFFERENCE_EPSILON); // ajustar esse epsilon no define acima ate que o programa pare
 
+    TrainingKnowledge* tr = (TrainingKnowledge *)calloc(1, sizeof *tr);
+    tr->nlabels = featureMatrix->nFeaturesVectors;
+    tr->labels = labels;
+    tr->dictionary = dict;
+
 	for (int i = 0; i < numberOfCluster; i++)
 		free(centroids[i]);
 	free(centroids);
-    free(labels);
-	return dict;
+	return tr;
 }

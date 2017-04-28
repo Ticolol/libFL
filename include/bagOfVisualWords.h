@@ -22,9 +22,17 @@ typedef struct _bagOfVisualWords {
     FeatureMatrix* vocabulary;
 } BagOfVisualWords;
 
+typedef struct _trainingKnowledge {
+    int nlabels;
+    int* labels;
+    FeatureMatrix* dictionary;
+} TrainingKnowledge;
+
+
 FeatureMatrix* computeFeatureVectors(Image* imagePack, int patchSize);
 FeatureMatrix* computeFeatureVectors(DirectoryManager* directoryManager, int patchSize);
-FeatureMatrix* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCluster);
+TrainingKnowledge* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCluster);
+
 
 
 
