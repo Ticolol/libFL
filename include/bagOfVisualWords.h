@@ -22,18 +22,28 @@ typedef struct _bagOfVisualWords {
     FeatureMatrix* vocabulary;
 } BagOfVisualWords;
 
-typedef struct _trainingKnowledge {
+typedef struct _vocabularyTraining {
     int nlabels;
     int* labels;
     FeatureMatrix* dictionary;
-} TrainingKnowledge;
+} VocabularyTraining;
+
+typedef struct _trainingKnowledge{
+    int nlabels;
+    int nvocabulary;
+    int* labels;
+    int** imageHistograms;//[nlabels, nvocabulary]
+}TrainingKnowledge;
 
 
 FeatureMatrix* computeFeatureVectors(Image* imagePack, int patchSize);
 FeatureMatrix* computeFeatureVectors(DirectoryManager* directoryManager, int patchSize);
-TrainingKnowledge* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCluster);
+VocabularyTraining* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCluster);
+TrainingKnowledge* createTrainingKnowledge(int numberOfImages, int vocabularySize);
+TrainingKnowledge* trainWithImage(int k, Image* image, TrainingKnowledge* trainingKnowledge,
+    VocabularyTraining* vocabularyTraining);
 
-
+//delete functions for these structures
 
 
 

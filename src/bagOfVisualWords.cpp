@@ -18,7 +18,7 @@ FeatureMatrix* computeFeatureVectors(DirectoryManager* directoryManager, int pat
     int patchY_axis = firstImage->ny/patchSize;
     int numberPatchsPerImage = patchX_axis*patchY_axis;
     int numberPatchs = numberPatchsPerImage*directoryManager->nfiles;
-    int binSize = 64;
+    int binSize = 32;
     destroyImage(&firstImage);
     FeatureMatrix* featureMatrix = createFeatureMatrix(numberPatchs);
     int k=0;
@@ -58,7 +58,7 @@ FeatureMatrix* computeFeatureVectors(Image* imagePack, int patchSize)
     int patchY_axis = imagePack->ny/patchSize;
     int numberPatchsPerImage = patchX_axis*patchY_axis;
     int numberPatchs = numberPatchsPerImage*imagePack->nz;
-    int binSize = 64;
+    int binSize = 32;
 
     FeatureMatrix* featureMatrix = createFeatureMatrix(numberPatchs);
     int k=0;
@@ -125,7 +125,7 @@ FeatureMatrix *find_centroids(FeatureMatrix *featureMatrix, float **centroids, i
 	return new_dict;
 }
 
-TrainingKnowledge* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCluster)
+VocabularyTraining* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCluster)
 {
 	FeatureMatrix *dict = createFeatureMatrix(numberOfCluster);
 	FeatureMatrix *new_dict = NULL;
@@ -185,7 +185,7 @@ TrainingKnowledge* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCl
 	// repete até a diferença entre o dict velho e o novo ficar menor que um epsilon
 	} while (dict_distance > DICT_DIFFERENCE_EPSILON); // ajustar esse epsilon no define acima ate que o programa pare
 
-    TrainingKnowledge* tr = (TrainingKnowledge *)calloc(1, sizeof *tr);
+    VocabularyTraining* tr = (VocabularyTraining *)calloc(1, sizeof *tr);
     tr->nlabels = featureMatrix->nFeaturesVectors;
     tr->labels = labels;
     tr->dictionary = dict;
@@ -194,4 +194,46 @@ TrainingKnowledge* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCl
 		free(centroids[i]);
 	free(centroids);
 	return tr;
+}
+
+
+TrainingKnowledge* createTrainingKnowledge(int numberOfImages, int vocabularySize){
+    TrainingKnowledge* tk = NULL;
+    tk = (TrainingKnowledge*)calloc(1,sizeof(TrainingKnowledge));
+    tk->nlabels = numberOfImages;
+    tk->nvocabulary = vocabularySize;
+    tk->labels = (int*)calloc(tk->nlabels,sizeof(int));
+    tk->imageHistograms = (int**)calloc(tk->nlabels,sizeof(int*));
+    for(int i = 0; i < tk->nlabels; i++){
+        tk->imageHistograms[i] = (int*)calloc(vocabularySize,sizeof(int));
+        for(int j = 0; j < tk->nvocabulary; j++){
+            tk->imageHistograms[i][j] = 0;
+        }
+    }
+    return tk;
+}
+
+
+TrainingKnowledge* trainWithImage(int k, Image* image, TrainingKnowledge* tk,
+    VocabularyTraining* vt){
+
+    FeatureMatrix* imgf = computeFeatureVectors(image, 32);
+    for (int i = 0; i < imgf->nFeaturesVectors; i++){
+        int closest_word = 0;
+        float distance_to_closest_word = euclidean_distance(imgf->featureVector[i],
+            vt->dictionary->featureVector[closest_word]);
+        for (int j = 1; j < vt->dictionary->nFeaturesVectors; j++) {
+            float distance = euclidean_distance(imgf->featureVector[i],
+                vt->dictionary->featureVector[j]);
+            if (distance < distance_to_closest_word) {
+                closest_word = j;
+                distance_to_closest_word = distance;
+            }
+        }
+        tk->imageHistograms[k][closest_word] += 1;
+    }
+    //trainingKnowledge->labels[i] = vocabularyTraining->labels[closest_word]
+    destroyFeatureMatrix(&imgf);
+
+    return tk;
 }
