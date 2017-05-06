@@ -237,3 +237,33 @@ TrainingKnowledge* trainWithImage(int k, Image* image, TrainingKnowledge* tk,
 
     return tk;
 }
+
+float euclidean_distance(int n, int* v0, int* v1){
+    int length;
+    float distance = 0;
+    length = n;
+    for (int i = 0; i < length; i++) {
+        float difference = v0[i] - v1[i];
+        distance += difference * difference;
+    }
+    distance = sqrt(distance);
+    return distance;
+}
+
+
+void findLabels (TrainingKnowledge* trainingKnowledge, TrainingKnowledge* testKnowledge){
+    for(int i=0; i<testKnowledge->nlabels; i++){
+        int closer = 0;
+        float distance_to_closest_image = euclidean_distance(trainingKnowledge->nvocabulary,
+            testKnowledge->imageHistograms[i], trainingKnowledge->imageHistograms[closer]);
+        for(int j=0; j<trainingKnowledge->nlabels; j++){
+            float distance = euclidean_distance(trainingKnowledge->nvocabulary,
+                testKnowledge->imageHistograms[i], trainingKnowledge->imageHistograms[j]);
+            if(distance < distance_to_closest_image){
+                closer = j;
+                distance_to_closest_image = distance;
+            }
+        }
+        testKnowledge->labels[i] = trainingKnowledge->labels[closer];
+    }
+}

@@ -42,6 +42,10 @@ VocabularyTraining* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfC
 TrainingKnowledge* createTrainingKnowledge(int numberOfImages, int vocabularySize);
 TrainingKnowledge* trainWithImage(int k, Image* image, TrainingKnowledge* trainingKnowledge,
     VocabularyTraining* vocabularyTraining);
+float euclidean_distance(int n, int* v0, int* v1);
+void findLabels (TrainingKnowledge* trainingKnowledge,TrainingKnowledge* testKnowledge);
+
+
 
 //delete functions for these structures
 
