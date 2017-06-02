@@ -13,39 +13,86 @@
 #include "featureVector.h"
 #include "file.h"
 #include "image.h"
-#include "histogram.h"
+#include "argumentList.h"
+#include "vector.h"
+#include "matrix.h"
+#include "matrixUtil.h"
+#include "distanceFunctions.h"
+#include "sampling.h"
+#include "featureExtractor.h"
+#include "classifiers.h"
+#include "clustering.h"
 
 #define BINSIZE 32
 
 
-typedef struct _bagOfVisualWords {
-    int patchSize;
-    DirectoryManager* directoryManager;
-    FeatureMatrix* vocabulary;
-} BagOfVisualWords;
-
-typedef struct _vocabularyTraining {
-    int nlabels;
-    int* labels;
-    FeatureMatrix* dictionary;
-} VocabularyTraining;
-
-typedef struct _trainingKnowledge{
-    int nlabels;
-    int nvocabulary;
-    int* labels;
-    int** imageHistograms;//[nlabels, nvocabulary]
-}TrainingKnowledge;
 
 
-FeatureMatrix* computeFeatureVectors(Image* imagePack, int patchSize);
-FeatureMatrix* computeFeatureVectors(DirectoryManager* directoryManager, int patchSize);
-VocabularyTraining* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCluster);
-TrainingKnowledge* createTrainingKnowledge(int numberOfImages, int vocabularySize);
-TrainingKnowledge* trainWithImage(int k, Image* image, TrainingKnowledge* trainingKnowledge,
-    VocabularyTraining* vocabularyTraining);
-float euclidean_distance(int n, int* v0, int* v1);
-void findLabels (TrainingKnowledge* trainingKnowledge,TrainingKnowledge* testKnowledge);
+
+typedef struct _bagOfVisualWordsManager BagOfVisualWordsManager;
+
+
+
+typedef GVector* (*ImageSamplerFunction)(Image* image, BagOfVisualWordsManager* bagOfVisualWordsManager);
+typedef Matrix* (*FeatureExtractorFunction)(GVector* outputSampler, BagOfVisualWordsManager* bagOfVisualWordsManager);
+typedef Matrix* (*ClusteringFunction)(Matrix* outputFeatureExtractor_allSamples, BagOfVisualWordsManager* bagOfVisualWordsManager);
+typedef GVector* (*MountHistogramFunction) (Matrix* outputFeatureExtractor_singleSample,BagOfVisualWordsManager* bagOfVisualWordsManager);
+
+typedef struct _bagOfVisualWordsManager {
+        GVector* pathsToImages_dictionery;
+        GVector* pathsToImages_train;
+        GVector* pathsToImages_test;
+        Matrix* dictionery;
+
+        Matrix* histogramsTraining;
+        GVector* labelsTraining;
+        Matrix* histogramsPredictSamples;
+        GVector* labelsPredicted;
+
+        bool storeTrainData;
+        bool storePredictedData;
+
+        void* classifier;
+
+        FreeFunction freeFunction2SamplerOutput;
+        FreeFunction freeFunctionClassifier;
+
+        ArgumentList* argumentListOfSampler;
+        ArgumentList* argumentListOfFeatureExtractor;
+        ArgumentList* argumentListOfClustering;
+        ArgumentList* argumentListOfDistanceFunction;
+        ArgumentList* argumentListOfHistogramMounter;
+
+        FeatureExtractorFunction featureExtractorFunction;
+        ImageSamplerFunction imageSamplerFunction;
+        DistanceFunction distanceFunction;
+        ClusteringFunction clusteringFunction;
+        MountHistogramFunction mountHistogramFunction;
+        FitFunction fitFunction;
+        PredictFunction predictFunction;
+}BagOfVisualWordsManager;
+
+BagOfVisualWordsManager* createBagOfVisualWordsManager();
+void destroyBagOfVisualWordsManager(BagOfVisualWordsManager** pBagOfVisualWordsManager);
+
+//
+GVector* gridSamplingBow(Image* image, BagOfVisualWordsManager* bagOfVisualWordsManager);
+//
+//
+Matrix* computeColorHistogramBow(GVector* vector,BagOfVisualWordsManager* bagOfVisualWordsManager);
+//
+//
+Matrix* kmeansClusteringBow(Matrix* featureMatrix, BagOfVisualWordsManager* bagOfVisualWordsManager);
+//
+//
+GVector* computeCountHistogram_bow(Matrix* featureMatrix,BagOfVisualWordsManager* bagOfVisualWordsManager);
+//
+
+
+
+void computeDictionery(BagOfVisualWordsManager* bagOfVisualWordsManager);
+void trainClassifier(BagOfVisualWordsManager* bagOfVisualWordsManager);
+GVector* predictLabels(BagOfVisualWordsManager* bagOfVisualWordsManager);
 
 
 

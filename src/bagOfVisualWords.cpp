@@ -7,214 +7,301 @@
 
 #define DICT_DIFFERENCE_EPSILON 9e-7
 
-FeatureMatrix* computeFeatureVectors(DirectoryManager* directoryManager, int patchSize){
-    Image* currentSlice;
-    Image* patch;
-    Histogram* histogram;
-    FeatureVector* patchVector;
-    Image* firstImage = readImage(directoryManager->files[0]->path);
-    int patchX_axis = firstImage->nx/patchSize;
-    int patchY_axis = firstImage->ny/patchSize;
-    int numberPatchsPerImage = patchX_axis*patchY_axis;
-    int numberPatchs = numberPatchsPerImage*directoryManager->nfiles;
-    int binSize = BINSIZE;
-    destroyImage(&firstImage);
-    FeatureMatrix* featureMatrix = createFeatureMatrix(numberPatchs);
-    int k=0;
-    for (size_t fileIndex = 0; fileIndex < directoryManager->nfiles; ++fileIndex) {
-        Image* currentImage = readImage(directoryManager->files[fileIndex]->path);
+BagOfVisualWordsManager* createBagOfVisualWordsManager(){
+    BagOfVisualWordsManager* bowManager = (BagOfVisualWordsManager*)calloc(1,sizeof(BagOfVisualWordsManager));
+    bowManager->pathsToImages_dictionery = NULL;
+    bowManager->pathsToImages_train = NULL;
+    bowManager->pathsToImages_test = NULL;
+    bowManager->dictionery = NULL;
+    bowManager->featureExtractorFunction = NULL;
+    bowManager->imageSamplerFunction = NULL;
+    bowManager->clusteringFunction = NULL;
+    bowManager->argumentListOfFeatureExtractor =NULL;
+    bowManager->argumentListOfSampler = NULL;
+    bowManager->argumentListOfClustering = NULL;
+    bowManager->argumentListOfDistanceFunction = NULL;
+    bowManager->freeFunction2SamplerOutput = NULL;
+    bowManager->classifier = NULL;
+    bowManager->freeFunctionClassifier = NULL;
+    bowManager->histogramsTraining = NULL;
+    bowManager->labelsTraining = NULL;
+    bowManager->storeTrainData = false;
+    bowManager->storePredictedData = false;
+    return bowManager;
+}
 
-        #pragma omp parallel for
-        for (int z = 0; z < currentImage->nz; ++z) {
-            currentSlice = getSlice(currentImage,z);
-            for (int y = 0; y <= currentImage->ny-patchSize; y +=patchSize) {
-                for (int x = 0; x <= currentImage->nx-patchSize; x += patchSize) {
-                    patch = extractSubImage(currentSlice,x,y,patchSize,patchSize,true);
-                    histogram = computeHistogram(patch,binSize,true);
-                    patchVector = createFeatureVector(histogram);
-                    featureMatrix->featureVector[k] = patchVector;
-                    k++;
-                    destroyHistogram(&histogram);
-                    destroyImage(&patch);
-                }
-            }
-            destroyImage(&currentSlice);
-        }
-
-        destroyImage(&currentImage);
+void destroyBagOfVisualWordsManager(BagOfVisualWordsManager** pBagOfVisualWordsManager){
+    BagOfVisualWordsManager* aux = *pBagOfVisualWordsManager;
+    if(aux == NULL){
+        return;
     }
-    return featureMatrix;
-}
+
+    destroyVector(&(aux->pathsToImages_dictionery));
+    destroyVector(&(aux->pathsToImages_train));
+    destroyVector(&(aux->pathsToImages_test));
+    destroyVector(&(aux->labelsTraining));
+    destroyVector(&(aux->labelsPredicted));
+
+    destroyArgumentList(&(aux->argumentListOfSampler));
+    destroyArgumentList(&(aux->argumentListOfFeatureExtractor));
+    destroyArgumentList(&(aux->argumentListOfClustering));
+    destroyArgumentList(&(aux->argumentListOfDistanceFunction));
+    destroyArgumentList(&(aux->argumentListOfHistogramMounter));
+
+    destroyMatrix(&(aux->dictionery));
+    destroyMatrix(&(aux->histogramsTraining));
+    destroyMatrix(&(aux->histogramsPredictSamples));
 
 
-FeatureMatrix* computeFeatureVectors(Image* imagePack, int patchSize)
-{
-    Image* currentSlice;
-    Image* patch;
-    Histogram* histogram;
-    FeatureVector* patchVector;
-    int patchX_axis = imagePack->nx/patchSize;
-    int patchY_axis = imagePack->ny/patchSize;
-    int numberPatchsPerImage = patchX_axis*patchY_axis;
-    int numberPatchs = numberPatchsPerImage*imagePack->nz;
-    int binSize = BINSIZE;
-
-    FeatureMatrix* featureMatrix = createFeatureMatrix(numberPatchs);
-    int k=0;
-    for (int z = 0; z < imagePack->nz; ++z) {
-        currentSlice = getSlice(imagePack,z);
-        for (int y = 0; y <= imagePack->ny-patchSize; y +=patchSize) {
-            for (int x = 0; x <= imagePack->nx-patchSize; x += patchSize) {
-                patch = extractSubImage(currentSlice,x,y,patchSize,patchSize,true);
-                histogram = computeHistogram(patch,binSize,true);
-                patchVector = createFeatureVector(histogram);
-                featureMatrix->featureVector[k] = patchVector;
-                k++;
-                destroyHistogram(&histogram);
-                destroyImage(&patch);
-            }
-        }
-        destroyImage(&currentSlice);
-    }
-    return featureMatrix;
-}
-
-float euclidean_distance(FeatureVector *v0, FeatureVector *v1)
-{
-	int length;
-	float distance = 0;
-    length = v0->size;
-	if (length != v1->size) {
-		return NAN;
-	}
-	for (int i = 0; i < length; i++) {
-		float difference = v0->features[i] - v1->features[i];
-		distance += difference * difference;
-	}
-	distance = sqrt(distance);
-	return distance;
-}
-
-FeatureMatrix *find_centroids(FeatureMatrix *featureMatrix, float **centroids, int *labels, int k, int length)
-{
-	if (featureMatrix->nFeaturesVectors < 1) {
-		return NULL;
-	}
-	int *vectors_in_cluster = (int *)calloc(k, sizeof *vectors_in_cluster);
-
-	for (int i = 0; i < featureMatrix->nFeaturesVectors; i++) {
-		int cluster = labels[i];
-		vectors_in_cluster[cluster]++;
-		for (int j = 0; j < length; j++) {
-			centroids[cluster][j] = featureMatrix->featureVector[i]->features[j];
-		}
-	}
-
-	for (int i = 0; i < k; i++) {
-		for (int j = 0; j < length; j++)
-			centroids[i][j] /= vectors_in_cluster[i];
-	}
-
-	FeatureMatrix *new_dict = createFeatureMatrix(k);
-	for (int i = 0; i < k; i++) {
-		new_dict->featureVector[i] = createFeatureVector(centroids[i], length);
-	}
-
-	free(vectors_in_cluster);
-	return new_dict;
-}
-
-VocabularyTraining* kMeansClustering(FeatureMatrix* featureMatrix, int numberOfCluster)
-{
-	FeatureMatrix *dict = createFeatureMatrix(numberOfCluster);
-	FeatureMatrix *new_dict = NULL;
-	int k = 0;
-	float dict_distance = 0.0;
-	bool *isUsed = (bool *)calloc(featureMatrix->nFeaturesVectors, sizeof *isUsed);
-	int *labels = (int *)calloc(featureMatrix->nFeaturesVectors, sizeof *labels);
-	// inicializamos o dicionario original para vetores escolhidos aleatoriamente do conjunto
-	while (k < numberOfCluster) {
-		int randomIndex = RandomInteger(0, featureMatrix->nFeaturesVectors-1);
-		if (!isUsed[randomIndex]) {
-			dict->featureVector[k] = copyFeatureVector(featureMatrix->featureVector[k]);
-			isUsed[randomIndex] = true;
-			k++;
-		}
-	}
-	free(isUsed);
-	if (featureMatrix->nFeaturesVectors < 1) {
-		return NULL;
-	}
-	float **centroids = (float **)calloc(numberOfCluster, sizeof *centroids); // esse vetor sera reutilizado varias vezes para encontrar centroides, sendo sobrescrito toda vez
-	int length = featureMatrix->featureVector[0]->size;
-	for (int i = 0; i < k; i++) {
-		centroids[i] = (float *)calloc(length, sizeof **centroids);
-	}
-	do {
-		for (int i = 0; i < featureMatrix->nFeaturesVectors; i++) {
-			// acha o cluster mais proximo
-			// distancia de vetores de 64 dimensoes (histogramas de 4 bins em cada canal, 4 * 4 * 4)
-			int closest_cluster = 0;
-			float distance_to_closest_cluster = euclidean_distance(featureMatrix->featureVector[i], dict->featureVector[closest_cluster]);
-			for (int j = 1; j < numberOfCluster; j++) {
-				// calculamos a distancia do vetor i para o centroide j do dicionario
-				float distance = euclidean_distance(featureMatrix->featureVector[i], dict->featureVector[j]);
-                //printf("%f -> -%f => %d\n", distance, distance_to_closest_cluster, distance < distance_to_closest_cluster);
-				if (distance < distance_to_closest_cluster) {
-					// se a distancia a esse centroide for menor do que a um anterior, atualizamos o centroide mais proximo
-					closest_cluster = j;
-					distance_to_closest_cluster = distance;
-				}
-			}
-			// depois de achado
-			// labels[i] contem o centroide mais proximo do vetor
-			labels[i] = closest_cluster;
-		}
-		// cria dicionario novo
-		// acha novos centroides (soma os vetores e divide pelo numero de vetores somados)
-		// criamos um novo conjunto de centroides considerando todos os vetores que foram direcionados para aquele cluster
-		new_dict = find_centroids(featureMatrix, centroids, labels, numberOfCluster, length);
-		dict_distance = 0.0;
-		for (int i = 0; i < dict->nFeaturesVectors; i++) {
-			dict_distance += euclidean_distance(dict->featureVector[i], new_dict->featureVector[i]);
-		}
-		dict_distance /= numberOfCluster; // consideramos a distancia entre dicionarios como a media da distancia entre cada centroide
-		destroyFeatureMatrix(&dict); // podemos destruir o dicionario antigo
-		dict = new_dict; // agora o novo dicionario eh o dicionario antigo. poetico.
-	// repete até a diferença entre o dict velho e o novo ficar menor que um epsilon
-	} while (dict_distance > DICT_DIFFERENCE_EPSILON); // ajustar esse epsilon no define acima ate que o programa pare
-
-    VocabularyTraining* tr = (VocabularyTraining *)calloc(1, sizeof *tr);
-    tr->nlabels = featureMatrix->nFeaturesVectors;
-    tr->labels = labels;
-    tr->dictionary = dict;
-
-	for (int i = 0; i < numberOfCluster; i++)
-		free(centroids[i]);
-	free(centroids);
-	return tr;
-}
-
-
-TrainingKnowledge* createTrainingKnowledge(int numberOfImages, int vocabularySize){
-    TrainingKnowledge* tk = NULL;
-    tk = (TrainingKnowledge*)calloc(1,sizeof(TrainingKnowledge));
-    tk->nlabels = numberOfImages;
-    tk->nvocabulary = vocabularySize;
-    tk->labels = (int*)calloc(tk->nlabels,sizeof(int));
-    tk->imageHistograms = (int**)calloc(tk->nlabels,sizeof(int*));
-    for(int i = 0; i < tk->nlabels; i++){
-        tk->imageHistograms[i] = (int*)calloc(vocabularySize,sizeof(int));
-        for(int j = 0; j < tk->nvocabulary; j++){
-            tk->imageHistograms[i][j] = 0;
+    if(aux->freeFunctionClassifier){
+        if(aux->classifier){
+            aux->freeFunctionClassifier(aux->classifier);
         }
     }
-    return tk;
+
+
+    free(*pBagOfVisualWordsManager);
+}
+
+//void setDefaultParameters(BagOfVisualWordsManager* bowManager){
+//    if(bowManager == NULL){
+//        printf("[setDefaultParameters] bowManager is null");
+//        return;
+//    }
+//
+//    ArgumentList* gridSamplingArguments = createArgumentList();
+//    ARGLIST_PUSH_BACK_AS(size_t,gridSamplingArguments,64); //patch size X
+//    ARGLIST_PUSH_BACK_AS(size_t,gridSamplingArguments,64); //patch size Y
+//    bowManager->argumentListOfSampler = gridSamplingArguments;
+//    bowManager->imageSamplerFunction = gridSampling;
+//
+//    //Neste exemplo eu usar o histograma de cores
+//    ArgumentList* colorFeatureExtractorArguments = createArgumentList();
+//    ARGLIST_PUSH_BACK_AS(size_t,colorFeatureExtractorArguments,8); //nBins per channel
+//    ARGLIST_PUSH_BACK_AS(size_t,colorFeatureExtractorArguments,8*8*8); //total number of channels
+//    bowManager->featureExtractorFunction = computeColorHistogram;
+//
+//}
+
+GVector* gridSamplingBow(Image* image, BagOfVisualWordsManager* bagOfVisualWordsManager){
+    ArgumentList* argumentList = bagOfVisualWordsManager->argumentListOfSampler;
+
+    if(argumentList->length == 0){
+        printf("[gridSampling] invalid argument list");
+    }else if(argumentList->length == 1){
+        size_t patchSize = ARGLIST_GET_ELEMENT_AS(size_t ,argumentList,0);
+        return gridSampling(image,patchSize,patchSize);
+    }else if(argumentList->length == 2){
+        size_t patchSizeX = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,0);
+        size_t patchSizeY = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,1);
+        return gridSampling(image,patchSizeX,patchSizeY);
+    }else{
+        return NULL;
+    }
+    return NULL;
 }
 
 
-TrainingKnowledge* trainWithImage(int k, Image* image, TrainingKnowledge* tk,
-    VocabularyTraining* vt){
+
+Matrix* computeColorHistogramBow(GVector* vector,BagOfVisualWordsManager* bagOfVisualWordsManager){
+    ArgumentList* argumentList = bagOfVisualWordsManager->argumentListOfFeatureExtractor;
+    if(argumentList->length < 2){
+        printf("[computeColorHistogram] invalid argument list");
+        return NULL;
+    }
+    if(vector->size == 0){
+        printf("[computeColorHistogram] vector has 0 elements");
+        return NULL;
+    }
+    size_t nbinsPerChannel = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,0);
+    size_t totalBins = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,1);
+    return computeColorHistogram(vector,nbinsPerChannel,totalBins);
+}
+
+
+void computeDictionery(BagOfVisualWordsManager* bagOfVisualWordsManager){
+    Matrix* allFeatures = NULL;
+    if(!bagOfVisualWordsManager->imageSamplerFunction){
+        printf("[computeDictionery] Sampler function not defined\n");
+    }
+
+
+    if(!bagOfVisualWordsManager->featureExtractorFunction){
+        printf("[computeDictionery] Feature extractor function not defined\n");
+        return;
+    }
+    if(!bagOfVisualWordsManager->clusteringFunction){
+        printf("[computeDictionery] Clustering function not defined\n");
+        return;
+    }
+
+    printf("[computeDictionery] Generating visual words...\n");
+    for (size_t i = 0; i < bagOfVisualWordsManager->pathsToImages_dictionery->size; ++i) {
+        char* imagePath = VECTOR_GET_ELEMENT_AS(char*,bagOfVisualWordsManager->pathsToImages_dictionery,i);
+        Image* image = readImage(imagePath);
+        if(image == NULL){
+            printf("[computeDictionery] invalid image path: %s",imagePath);
+            continue;
+        }
+        GVector* samplingResults = NULL;
+        if(bagOfVisualWordsManager->imageSamplerFunction){
+            samplingResults = bagOfVisualWordsManager->imageSamplerFunction(image,
+                                                                            bagOfVisualWordsManager);
+            samplingResults->freeFunction = bagOfVisualWordsManager->freeFunction2SamplerOutput;
+        }else{
+            samplingResults = createNullVector(1,sizeof(Image*));
+            VECTOR_GET_ELEMENT_AS(Image*,samplingResults,0) = image;
+        }
+        Matrix* featureMatrix = bagOfVisualWordsManager->featureExtractorFunction(samplingResults,
+                                                                                  bagOfVisualWordsManager);
+        Matrix* newData = stackVerticallyMatrices(allFeatures,featureMatrix);
+        destroyMatrix(&allFeatures);
+        allFeatures = newData;
+        destroyImage(&image);
+        destroyVector(&samplingResults);
+        destroyMatrix(&featureMatrix);
+    }
+
+    printf("[computeDictionery] Finding Visual words...\n");
+    bagOfVisualWordsManager->dictionery = bagOfVisualWordsManager->clusteringFunction(allFeatures,
+                                                bagOfVisualWordsManager);
+    destroyMatrix(&allFeatures);
+    printf("[computeDictionery] Dictioney computed\n");
+}
+
+void trainClassifier(BagOfVisualWordsManager* bagOfVisualWordsManager){
+    if(!bagOfVisualWordsManager->imageSamplerFunction){
+        printf("[trainClassifier] Sampler function not defined\n");
+    }
+
+
+    if(!bagOfVisualWordsManager->featureExtractorFunction){
+        printf("[trainClassifier] Feature extractor function not defined\n");
+        return;
+    }
+    if(bagOfVisualWordsManager->dictionery == NULL){
+        printf("[trainClassifier] Dictionery is empty\n");
+        return;
+    }
+    if(bagOfVisualWordsManager->mountHistogramFunction == NULL){
+        printf("[trainClassifier] Mounter histogram function not defined\n");
+        return;
+    }
+    if(bagOfVisualWordsManager->fitFunction == NULL){
+        printf("[trainClassifier] Fit function not defined\n");
+        return;
+    }
+
+
+    Matrix *bowHistograms = createMatrix(bagOfVisualWordsManager->pathsToImages_train->size,
+                                         bagOfVisualWordsManager->dictionery->numberRows,
+                                         sizeof(float));
+    GVector *imagesLabels = createNullVector(bagOfVisualWordsManager->pathsToImages_train->size,sizeof(int));
+    //Matrix *bowHistograms = NULL;
+    printf("[trainClassifier] Generating histograms and labels from images\n");
+    for (size_t index = 0; index < bagOfVisualWordsManager->pathsToImages_train->size; ++index) {
+        char* imagePath = VECTOR_GET_ELEMENT_AS(char*,bagOfVisualWordsManager->pathsToImages_train,index);
+        Image* image = readImage(imagePath);
+        if(image == NULL){
+            printf("[computeDictionery] Invalid image path: %s",imagePath);
+            continue;
+        }
+        GVector* samplingResults = NULL;
+        if(bagOfVisualWordsManager->imageSamplerFunction){
+            samplingResults = bagOfVisualWordsManager->imageSamplerFunction(image,
+                                                                            bagOfVisualWordsManager);
+            samplingResults->freeFunction = bagOfVisualWordsManager->freeFunction2SamplerOutput;
+        }else{
+            samplingResults = createNullVector(1,sizeof(Image*));
+            VECTOR_GET_ELEMENT_AS(Image*,samplingResults,0) = image;
+        }
+        Matrix* featureMatrix = bagOfVisualWordsManager->featureExtractorFunction(samplingResults, bagOfVisualWordsManager);
+
+        GVector* histogram = bagOfVisualWordsManager->mountHistogramFunction(featureMatrix,bagOfVisualWordsManager);
+        setRowValueGivenVector(bowHistograms,histogram,index);
+        VECTOR_GET_ELEMENT_AS(int,imagesLabels,index) = findTrueLabelInName(imagePath);
+
+        destroyImage(&image);
+        destroyMatrix(&featureMatrix);
+        destroyVector(&histogram);
+        destroyVector(&samplingResults);
+    }
+
+    printf("[trainClassifier] Histograms and labels generated\n");
+    printf("[trainClassifier] Classifier  trainning...\n");
+    bagOfVisualWordsManager->fitFunction(bowHistograms,imagesLabels,bagOfVisualWordsManager->classifier);
+    printf("[trainClassifier] Classifier trained...\n");
+
+    if(bagOfVisualWordsManager->storeTrainData){
+        if(bagOfVisualWordsManager->histogramsTraining){
+            destroyMatrix(&(bagOfVisualWordsManager->histogramsTraining));
+        }
+        bagOfVisualWordsManager->histogramsTraining = bowHistograms;
+
+        if(bagOfVisualWordsManager->labelsTraining){
+            destroyVector(&(bagOfVisualWordsManager->labelsTraining));
+        }
+        bagOfVisualWordsManager->labelsTraining = imagesLabels;
+    }else{
+        destroyMatrix(&bowHistograms);
+        destroyVector(&imagesLabels);
+    }
+}
+
+GVector* predictLabels(BagOfVisualWordsManager* bagOfVisualWordsManager){
+    if(!bagOfVisualWordsManager->imageSamplerFunction){
+        printf("[predictLabels] Sampler function not defined\n");
+    }
+
+
+    if(!bagOfVisualWordsManager->featureExtractorFunction){
+        printf("[predictLabels] Feature extractor function not defined\n");
+        return NULL;
+    }
+    if(bagOfVisualWordsManager->dictionery == NULL){
+        printf("[predictLabels] Dictionery is empty\n");
+        return NULL;
+    }
+    if(bagOfVisualWordsManager->mountHistogramFunction == NULL){
+        printf("[predictLabels] Mounter histogram function not defined\n");
+        return NULL;
+    }
+    if(bagOfVisualWordsManager->predictFunction == NULL){
+        printf("[predictLabels] Predict function not defined\n");
+        return NULL;
+    }
+    Matrix *bowHistograms = createMatrix(bagOfVisualWordsManager->pathsToImages_test->size,
+                                         bagOfVisualWordsManager->dictionery->numberRows,
+                                         sizeof(float));
+    printf("[predictLabels] Generating histograms and labels from images\n");
+    for (size_t index = 0; index < bagOfVisualWordsManager->pathsToImages_test->size; ++index) {
+        char* imagePath = VECTOR_GET_ELEMENT_AS(char*,bagOfVisualWordsManager->pathsToImages_test,index);
+        Image* image = readImage(imagePath);
+        if(image == NULL){
+            printf("[predictLabels] Invalid image path: %s",imagePath);
+            continue;
+        }
+        GVector* samplingResults = NULL;
+        if(bagOfVisualWordsManager->imageSamplerFunction){
+            samplingResults = bagOfVisualWordsManager->imageSamplerFunction(image,
+                                                                            bagOfVisualWordsManager);
+            samplingResults->freeFunction = bagOfVisualWordsManager->freeFunction2SamplerOutput;
+        }else{
+            samplingResults = createNullVector(1,sizeof(Image*));
+            VECTOR_GET_ELEMENT_AS(Image*,samplingResults,0) = image;
+        }
+        Matrix* featureMatrix = bagOfVisualWordsManager->featureExtractorFunction(samplingResults, bagOfVisualWordsManager);
+
+        GVector* histogram = bagOfVisualWordsManager->mountHistogramFunction(featureMatrix,bagOfVisualWordsManager);
+        setRowValueGivenVector(bowHistograms,histogram,index);
+
+        destroyImage(&image);
+        destroyMatrix(&featureMatrix);
+        destroyVector(&histogram);
+        destroyVector(&samplingResults);
+    }
+    printf("[predictLabels] Histograms and labels generated\n");
+    printf("[predictLabels] Predicting labels...\n");
 
     FeatureMatrix* imgf = computeFeatureVectors(image, BINSIZE);
     for (int i = 0; i < imgf->nFeaturesVectors; i++){
@@ -234,35 +321,86 @@ TrainingKnowledge* trainWithImage(int k, Image* image, TrainingKnowledge* tk,
     //trainingKnowledge->labels[i] = vocabularyTraining->labels[closest_word]
     destroyFeatureMatrix(&imgf);
 
-    return tk;
-}
-
-float euclidean_distance(int n, int* v0, int* v1){
-    int length;
-    float distance = 0;
-    length = n;
-    for (int i = 0; i < length; i++) {
-        float difference = v0[i] - v1[i];
-        distance += difference * difference;
-    }
-    distance = sqrt(distance);
-    return distance;
-}
-
-
-void findLabels (TrainingKnowledge* trainingKnowledge, TrainingKnowledge* testKnowledge){
-    for(int i=0; i<testKnowledge->nlabels; i++){
-        int closer = 0;
-        float distance_to_closest_image = euclidean_distance(trainingKnowledge->nvocabulary,
-            testKnowledge->imageHistograms[i], trainingKnowledge->imageHistograms[closer]);
-        for(int j=0; j<trainingKnowledge->nlabels; j++){
-            float distance = euclidean_distance(trainingKnowledge->nvocabulary,
-                testKnowledge->imageHistograms[i], trainingKnowledge->imageHistograms[j]);
-            if(distance < distance_to_closest_image){
-                closer = j;
-                distance_to_closest_image = distance;
-            }
+    GVector* labelsPredicted = bagOfVisualWordsManager->predictFunction(bowHistograms,bagOfVisualWordsManager->classifier);
+    printf("[predictLabels] Labels predicted...\n");
+    if(bagOfVisualWordsManager->storePredictedData){
+        if(bagOfVisualWordsManager->histogramsPredictSamples){
+            destroyMatrix(&(bagOfVisualWordsManager->histogramsPredictSamples));
         }
-        testKnowledge->labels[i] = trainingKnowledge->labels[closer];
+        bagOfVisualWordsManager->histogramsPredictSamples = bowHistograms;
+        if(bagOfVisualWordsManager->labelsPredicted){
+            destroyVector(&(bagOfVisualWordsManager->labelsPredicted));
+        }
+        bagOfVisualWordsManager->labelsPredicted = labelsPredicted;
+    }else{
+        destroyMatrix(&bowHistograms);
     }
+    return labelsPredicted;
+}
+
+GVector* computeCountHistogram_bow(Matrix* featureMatrix,BagOfVisualWordsManager* bagOfVisualWordsManager){
+    GVector* bowHistogram = createNullVector(bagOfVisualWordsManager->dictionery->numberRows,sizeof(float));
+    for (size_t patchIndex = 0; patchIndex < featureMatrix->numberRows; ++patchIndex) {
+        size_t nearestClusterIndex = findNearestRow(bagOfVisualWordsManager->dictionery,
+                                                    featureMatrix,patchIndex,
+                                                    bagOfVisualWordsManager->distanceFunction,
+                                                    bagOfVisualWordsManager->argumentListOfDistanceFunction);
+        VECTOR_GET_ELEMENT_AS(float,bowHistogram,nearestClusterIndex) += 1.0;
+    }
+    for (size_t i = 0; i < bowHistogram->size; ++i) {
+        VECTOR_GET_ELEMENT_AS(float,bowHistogram,i) /= featureMatrix->numberRows;
+    }
+    return bowHistogram;
+}
+
+
+Matrix* kmeansClusteringBow(Matrix* featureMatrix, BagOfVisualWordsManager* bagOfVisualWordsManager){
+    ArgumentList* argumentList = bagOfVisualWordsManager->argumentListOfClustering;
+    if(argumentList->length <= 0){
+        printf("[kmeansClustering] invalid argument list\n");
+        return NULL;
+    }
+    if(featureMatrix->numberRows == 0 || featureMatrix->numberColumns == 0){
+        printf("[kmeansClustering] invalid matrix dimension: R%lu C%lu\n",featureMatrix->numberRows,featureMatrix->numberColumns);
+        return NULL;
+    }
+
+    if(argumentList->length == 1){
+        size_t numberOfCluster = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,0);
+        return kmeansClustering(featureMatrix,numberOfCluster);
+    }
+    else if(argumentList->length == 2){
+        size_t numberOfCluster = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,0);
+        size_t maximumNumberIterations = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,1);
+        return kmeansClustering(featureMatrix,numberOfCluster,
+                                maximumNumberIterations);
+    }else if(argumentList->length == 3){
+        size_t numberOfCluster = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,0);
+        size_t maximumNumberIterations = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,1);
+        double tolerance = ARGLIST_GET_ELEMENT_AS(double,argumentList,2);
+
+        return kmeansClustering(featureMatrix,numberOfCluster,
+                                maximumNumberIterations,tolerance);
+    }else if(argumentList->length == 4){
+        size_t numberOfCluster = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,0);
+        size_t maximumNumberIterations = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,1);
+        double tolerance = ARGLIST_GET_ELEMENT_AS(double,argumentList,2);
+        int seed = ARGLIST_GET_ELEMENT_AS(int,argumentList,3);
+        return kmeansClustering(featureMatrix,numberOfCluster,
+                                maximumNumberIterations,tolerance,seed);
+    }else if (argumentList->length == 6){
+        size_t numberOfCluster = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,0);
+        size_t maximumNumberIterations = ARGLIST_GET_ELEMENT_AS(size_t,argumentList,1);
+        double tolerance = ARGLIST_GET_ELEMENT_AS(double,argumentList,2);
+        int seed = ARGLIST_GET_ELEMENT_AS(int,argumentList,3);
+        DistanceFunction distanceFunction = ARGLIST_GET_ELEMENT_AS(DistanceFunction ,argumentList,4);
+        ArgumentList* distanceFunctionArgs = ARGLIST_GET_ELEMENT_AS(ArgumentList* ,argumentList,5);
+        return kmeansClustering(featureMatrix,numberOfCluster,
+                                maximumNumberIterations,tolerance,seed,
+                                distanceFunction, distanceFunctionArgs);
+    }else{
+        printf("[kmeansClusteringBow] invalid arguments for kmeans\n");
+    }
+    return NULL;
+
 }
