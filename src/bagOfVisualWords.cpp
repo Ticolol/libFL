@@ -303,24 +303,6 @@ GVector* predictLabels(BagOfVisualWordsManager* bagOfVisualWordsManager){
     printf("[predictLabels] Histograms and labels generated\n");
     printf("[predictLabels] Predicting labels...\n");
 
-    FeatureMatrix* imgf = computeFeatureVectors(image, BINSIZE);
-    for (int i = 0; i < imgf->nFeaturesVectors; i++){
-        int closest_word = 0;
-        float distance_to_closest_word = euclidean_distance(imgf->featureVector[i],
-            vt->dictionary->featureVector[closest_word]);
-        for (int j = 1; j < vt->dictionary->nFeaturesVectors; j++) {
-            float distance = euclidean_distance(imgf->featureVector[i],
-                vt->dictionary->featureVector[j]);
-            if (distance < distance_to_closest_word) {
-                closest_word = j;
-                distance_to_closest_word = distance;
-            }
-        }
-        tk->imageHistograms[k][closest_word] += 1;
-    }
-    //trainingKnowledge->labels[i] = vocabularyTraining->labels[closest_word]
-    destroyFeatureMatrix(&imgf);
-
     GVector* labelsPredicted = bagOfVisualWordsManager->predictFunction(bowHistograms,bagOfVisualWordsManager->classifier);
     printf("[predictLabels] Labels predicted...\n");
     if(bagOfVisualWordsManager->storePredictedData){
