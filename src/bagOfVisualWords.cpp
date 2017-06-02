@@ -7,7 +7,6 @@
 
 #define DICT_DIFFERENCE_EPSILON 9e-7
 
-
 FeatureMatrix* computeFeatureVectors(DirectoryManager* directoryManager, int patchSize){
     Image* currentSlice;
     Image* patch;
@@ -18,7 +17,7 @@ FeatureMatrix* computeFeatureVectors(DirectoryManager* directoryManager, int pat
     int patchY_axis = firstImage->ny/patchSize;
     int numberPatchsPerImage = patchX_axis*patchY_axis;
     int numberPatchs = numberPatchsPerImage*directoryManager->nfiles;
-    int binSize = 32;
+    int binSize = BINSIZE;
     destroyImage(&firstImage);
     FeatureMatrix* featureMatrix = createFeatureMatrix(numberPatchs);
     int k=0;
@@ -58,7 +57,7 @@ FeatureMatrix* computeFeatureVectors(Image* imagePack, int patchSize)
     int patchY_axis = imagePack->ny/patchSize;
     int numberPatchsPerImage = patchX_axis*patchY_axis;
     int numberPatchs = numberPatchsPerImage*imagePack->nz;
-    int binSize = 32;
+    int binSize = BINSIZE;
 
     FeatureMatrix* featureMatrix = createFeatureMatrix(numberPatchs);
     int k=0;
@@ -217,7 +216,7 @@ TrainingKnowledge* createTrainingKnowledge(int numberOfImages, int vocabularySiz
 TrainingKnowledge* trainWithImage(int k, Image* image, TrainingKnowledge* tk,
     VocabularyTraining* vt){
 
-    FeatureMatrix* imgf = computeFeatureVectors(image, 32);
+    FeatureMatrix* imgf = computeFeatureVectors(image, BINSIZE);
     for (int i = 0; i < imgf->nFeaturesVectors; i++){
         int closest_word = 0;
         float distance_to_closest_word = euclidean_distance(imgf->featureVector[i],

@@ -15,6 +15,8 @@
 #include "image.h"
 #include "histogram.h"
 
+#define BINSIZE 32
+
 
 typedef struct _bagOfVisualWords {
     int patchSize;
