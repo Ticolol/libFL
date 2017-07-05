@@ -6,9 +6,9 @@ int main(int argc, char **argv) {
 
     //Caminhos onde esta o arquivo txt gerado pelo o script python "selec_samples2.py"
     //os caminhos vao mudar para cada pessoa
-    char const* const fileName_createDict = "/home/deangeli/databases/train_paths.txt";
-    char const* const fileName_createTrain = "/home/deangeli/databases/train_paths.txt";
-    char const* const fileName_createTest = "/home/deangeli/databases/test_paths.txt";
+    char const* const fileName_createDict = "../../images/coil-100/train_paths.txt";
+    char const* const fileName_createTrain = "../../images/coil-100/train_paths.txt";
+    char const* const fileName_createTest = "../../images/coil-100/test_paths.txt";
 
     //cada posicao do vetor tem uma string para o caminho de uma imagem
     GVector* vectorSamplesUsed2CreateDict =  splitsLinesInTextFile(fileName_createDict);
@@ -210,5 +210,3 @@ int main(int argc, char **argv) {
     return 0;
 
 }
-
-

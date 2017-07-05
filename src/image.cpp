@@ -24,6 +24,7 @@ Image* createImage(int nx, int ny,int nchannels){
     image->nchannels = nchannels;
     findAppropriateColorSpace(image);
     image->dataTypeId = FLOAT;
+    image->filename = NULL;
     for (int i = 0; i < image->nchannels; ++i) {
         image->channel[i] = (float*)calloc(image->numberPixels,sizeof(float));
         //image->channel[i] = (float*)calloc(image->numberPixels,sizeof(float*));
@@ -49,6 +50,7 @@ Image* createImage(int nx, int ny,int nz, int nchannels){
     image->nchannels = nchannels;
     findAppropriateColorSpace(image);
     image->dataTypeId = FLOAT;
+    image->filename = NULL;
     for (int i = 0; i < image->nchannels; ++i) {
         image->channel[i] = (float*)calloc(image->numberPixels,sizeof(float));
         //image->channel[i] = (float*)calloc(image->numberPixels,sizeof(float*));
@@ -72,6 +74,7 @@ Image* createImage(int nx, int ny){
     image->nchannels = 1;
     image->colorSpace = GRAYSCALE;
     image->dataTypeId = FLOAT;
+    image->filename = NULL;
     for (int i = 0; i < image->nchannels; ++i) {
         image->channel[i] = (float*)calloc(image->numberPixels,sizeof(float*));
     }
@@ -130,6 +133,7 @@ Image* readImage(char *filename){
     else{
         printf("image format unknown\n");
     }
+    image->filename = filename;
     return image;
 }
 

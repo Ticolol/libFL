@@ -49,6 +49,7 @@ typedef struct _image {
     int nchannels;
     ColorSpace colorSpace;
     DataType dataTypeId;
+    char *filename;
 } Image;
 
 
